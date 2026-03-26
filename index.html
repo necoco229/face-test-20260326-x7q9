@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="robots" content="noindex, nofollow">
+    <title>電波人間 顔シミュレーター</title>
+    <style>
+        :root { --skin-color: #FFDBAC; --hair-color: #4A2C2A; }
+        body { font-family: sans-serif; display: flex; gap: 20px; padding: 20px; background: #eee; }
+
+        .preview-area { position: sticky; top: 20px; width: 400px; }
+        #main-canvas {
+            width: 400px; height: 400px;
+            background: #fff; border: 4px solid #333; border-radius: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        /* 番号表示パネルのスタイル */
+        .status-panel {
+            background: #333; color: #fff; padding: 12px; border-radius: 8px; 
+            margin-top: 10px; font-size: 13px; line-height: 1.6; font-family: monospace;
+        }
+
+        .controls { width: 550px; height: 95vh; overflow-y: auto; background: #fff; padding: 20px; border-radius: 10px; }
+        .section-title { border-left: 5px solid #ff4400; padding-left: 10px; margin: 20px 0 10px; font-weight: bold; }
+        
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(65px, 1fr)); gap: 8px; align-items: start; }
+        .item-btn { cursor: pointer; border: 2px solid #ddd; border-radius: 8px; padding: 2px; background: #fff; transition: 0.2s; display: flex; align-items: center; justify-content: center; }
+        .item-btn img { width: 100%; height: auto; display: block; object-fit: contain; }
+        .item-btn.active { border-color: #ff4400; box-shadow: 0 0 8px rgba(255,68,0,0.4); transform: scale(1.05); z-index: 2; }
+
+        .palette { display: flex; flex-wrap: wrap; gap: 8px; }
+        .color-dot { width: 42px; height: 42px; border-radius: 50%; border: 2px solid #ccc; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; }
+        .color-dot.active { border: 3px solid #ff4400; transform: scale(1.1); }
+        .save-btn { width: 100%; margin-top: 15px; padding: 12px; background: #ff4400; color: #fff; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="preview-area">
+    <canvas id="main-canvas" width="500" height="500"></canvas>
+    
+    <!-- 画面表示用のステータスパネル -->
+    <div class="status-panel">
+        <div style="border-bottom: 1px solid #555; margin-bottom: 5px; padding-bottom: 5px;">
+            色 [ 肌:<span id="s-skinCol">0</span> 髪:<span id="s-hairCol">0</span> ]
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2px;">
+            <span>髪型:<span id="s-hair">0</span></span>
+            <span>目:<span id="s-eyes">0</span></span>
+            <span>口:<span id="s-mouth">0</span></span>
+            <span>鼻:<span id="s-nose">0</span></span>
+            <span>眉:<span id="s-brow">0</span></span>
+            <span>頬:<span id="s-cheek">0</span></span>
+        </div>
+    </div>
+
+    <button class="save-btn" onclick="exportPNG()">PNG画像として保存</button>
+</div>
+
+<div class="controls" id="menu"></div>
+
+<script>
+const state = {
+    skinCol: '#FFDBAC', hairCol: '#4A2C2A',
+    hair: 0, eyes: 0, mouth: 0, nose: 0, brow: 0, cheek: 0
+};
+
+const skinColors = ['#FFDBA3', '#FFDC96', '#FFC7B1', '#F2975D', '#E37B52', '#8E3B2E','#FFDCBE', '#E9C0A5', '#B68D7D', '#4F3B36', '#FFF1E8'];
+const hairColors = ['#252525', '#ffffff', '#804507', '#CD902A', '#942A00', '#FFDD20', '#0059FF', '#09A600', '#A128FF', '#FF6E80', '#F75700', '#F00011'];
+
+const partsConfig = [
+    { id: 'hair',  label: '髪型と輪郭', count: 95 },
+    { id: 'eyes',  label: '目', count: 68 },
+    { id: 'mouth', label: '口', count: 71 },
+    { id: 'nose',  label: '鼻', count: 42 },
+    { id: 'brow',  label: '眉', count: 39 },
+    { id: 'cheek', label: '頬', count: 14 }
+];
+
+const canvas = document.getElementById('main-canvas');
+const ctx = canvas.getContext('2d');
+const menu = document.getElementById('menu');
+
+// 画像読み込みと描画
+async function drawLayer(src, color = null) {
+    if (!src) return;
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.src = src;
+        img.onload = () => {
+            if (color) {
+                const off = document.createElement('canvas');
+                off.width = 500; off.height = 500;
+                const oCtx = off.getContext('2d');
+                oCtx.fillStyle = color;
+                oCtx.fillRect(0, 0, 500, 500);
+                oCtx.globalCompositeOperation = 'destination-in';
+                oCtx.drawImage(img, 0, 0, 500, 500);
+                ctx.drawImage(off, 0, 0);
+            } else {
+                ctx.drawImage(img, 0, 0, 500, 500);
+            }
+            resolve();
+        };
+        img.onerror = () => resolve();
+    });
+}
+
+// プレビューのレンダリング
+async function render() {
+    ctx.clearRect(0, 0, 500, 500);
+    
+    // パーツ描画
+    await drawLayer(`img/parts/skin_${state.hair}.png`, state.skinCol);
+    await drawLayer(`img/parts/cheek_${state.cheek}.png`);
+    await drawLayer(`img/parts/mouth_${state.mouth}.png`);
+    await drawLayer(`img/parts/nose_${state.nose}.png`);
+    await drawLayer(`img/parts/eyes_${state.eyes}.png`);
+    await drawLayer(`img/parts/brow_${state.brow}.png`);
+    await drawLayer(`img/parts/hair_${state.hair}_fill.png`, state.hairCol);
+    await drawLayer(`img/parts/hair_${state.hair}_line.png`);
+
+    // --- パネル上の数字を更新 ---
+    const sSkinNum = skinColors.indexOf(state.skinCol);
+    const sHairNum = hairColors.indexOf(state.hairCol);
+    document.getElementById('s-skinCol').textContent = sSkinNum;
+    document.getElementById('s-hairCol').textContent = sHairNum;
+    document.getElementById('s-hair').textContent = state.hair;
+    document.getElementById('s-eyes').textContent = state.eyes;
+    document.getElementById('s-mouth').textContent = state.mouth;
+    document.getElementById('s-nose').textContent = state.nose;
+    document.getElementById('s-brow').textContent = state.brow;
+    document.getElementById('s-cheek').textContent = state.cheek;
+
+    // --- 画像内にテキストを表示（刻印機能） ---
+    ctx.fillStyle = "rgba(0, 0, 0, 0.5)"; // 半透明の黒
+    ctx.font = "bold 14px monospace";
+    const recipeText = `S:${sSkinNum} HC:${sHairNum} H:${state.hair} E:${state.eyes} M:${state.mouth} N:${state.nose} B:${state.brow} C:${state.cheek}`;
+    
+    // 右下に配置（背景に少し白い影をつけて読みやすくする）
+    ctx.shadowColor = "white";
+    ctx.shadowBlur = 4;
+    ctx.fillText(recipeText, 10, 485);
+    ctx.shadowBlur = 0; // 他の描画に影響しないよう戻す
+}
+
+function makePalette(title, colors, type) {
+    const head = document.createElement('div'); head.className = 'section-title'; head.textContent = title;
+    menu.appendChild(head);
+    const wrap = document.createElement('div'); wrap.className = 'palette';
+    colors.forEach((c, i) => {
+        const dot = document.createElement('div');
+        dot.className = 'color-dot';
+        dot.style.backgroundColor = c;
+        dot.textContent = i;
+        dot.style.color = (parseInt(c.slice(1,3),16)*299 + parseInt(c.slice(3,5),16)*587 + parseInt(c.slice(5,7),16)*114)/1000 >= 128 ? '#000' : '#fff';
+        if(i===0) dot.classList.add('active');
+        dot.onclick = () => {
+            wrap.querySelectorAll('.active').forEach(el=>el.classList.remove('active'));
+            dot.classList.add('active');
+            if(type === 'skin') state.skinCol = c; else state.hairCol = c;
+            render();
+        };
+        wrap.appendChild(dot);
+    });
+    menu.appendChild(wrap);
+}
+
+function makeParts(p) {
+    const head = document.createElement('div'); head.className = 'section-title'; head.textContent = p.label;
+    menu.appendChild(head);
+    const wrap = document.createElement('div'); wrap.className = 'grid';
+    for(let i=0; i<p.count; i++){
+        const btn = document.createElement('div');
+        btn.className = 'item-btn';
+        if(i===0) btn.classList.add('active');
+        btn.innerHTML = `<img src="img/thumbs/${p.id}_${i}.png" onerror="this.parentElement.style.opacity='0.2'">`;
+        
+        btn.onclick = () => {
+            wrap.querySelectorAll('.active').forEach(el=>el.classList.remove('active'));
+            btn.classList.add('active');
+            state[p.id] = i;
+            render();
+        };
+        wrap.appendChild(btn);
+    }
+    menu.appendChild(wrap);
+}
+
+// 初期実行
+makePalette("肌色パレット (0-10)", skinColors, 'skin');
+makePalette("髪色パレット (0-11)", hairColors, 'hair');
+partsConfig.forEach(p => makeParts(p));
+render();
+
+function exportPNG() {
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL();
+    a.download = `denpa_recipe_${state.hair}.png`;
+    a.click();
+}
+</script>
+</body>
+</html>
