@@ -61,13 +61,19 @@
 <div class="controls" id="menu"></div>
 
 <script>
-const state = {
-    skinCol: '#FFDBA3', hairCol: '#252525',
-    hair: 0, eyes: 0, mouth: 0, nose: 0, brow: 0, cheek: 0
-};
-
-const skinColors = ['#FFDBA3', '#FFDC96', '#FFC7B1', '#F2975D', '#E37B52', '#8E3B2E','#FFDCBE', '#E9C0A5', '#B68D7D', '#4F3B36', '#FFF1E8'];
+const skinColors = ['#FFDBA3', '#FFDC96', '#FFC7B1', '#F2975D', '#E37B52', '#8E3B2E', '#FFDCBE', '#E9C0A5', '#B68D7D', '#4F3B36', '#FFF1E8'];
 const hairColors = ['#252525', '#ffffff', '#804507', '#CD902A', '#942A00', '#FFDD20', '#0059FF', '#09A600', '#A128FF', '#FF6E80', '#F75700', '#F00011'];
+
+const state = {
+    skinCol: skinColors[0],
+    hairCol: hairColors[0],
+    hair: 0,
+    eyes: 0,
+    mouth: 0,
+    nose: 0,
+    brow: 0,
+    cheek: 0
+};
 
 const partsConfig = [
     { id: 'hair',  label: '髪型と輪郭', count: 95 },
